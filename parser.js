@@ -7,25 +7,20 @@ function getYear(semester) {
 module.exports = function parseResult(text) {
   const students = [];
 
-  // Clean OCR text
   text = text
     .replace(/\r/g, "")
     .replace(/\t/g, " ")
     .replace(/ +/g, " ");
 
-  // Split by each student
   const blocks = text.split(/Register No\.\s*:\s*/i);
 
   for (const block of blocks) {
-
     if (!block || block.length < 20) continue;
 
-    // ---------- REGISTER NUMBER ----------
     const regMatch = block.match(/^([0-9A-Z]+)/);
     if (!regMatch) continue;
     const regno = regMatch[1];
 
-    // ---------- NAME ----------
     let name = "UNKNOWN";
     const nameMatch = block.match(/Name\s*:\s*([A-Z ]+)/i);
     if (nameMatch) {
@@ -35,16 +30,7 @@ module.exports = function parseResult(text) {
     const subjects = [];
     const lines = block.split("\n");
 
-    // ---------- SUBJECT LINES ----------
     for (const line of lines) {
-
-      /*
-        Example lines:
-        5 CUCT-7 Open Source Technology 5 17 40 057 P
-        4 AUCT-4 Computer Networks - 16 07 023 RA
-        5 CUCT-IN Internship Training 6 30 -- 030 P
-      */
-
       const match = line.match(
         /^(\d)\s+([A-Z0-9\-]+)\s+(.+?)\s+(\d+|-)\s+(\d+|AA|--)\s+(\d+|AA|--)\s+(\d+|AA)\s+(P|RA|AA)$/i
       );
@@ -70,7 +56,7 @@ module.exports = function parseResult(text) {
         ia,
         ea,
         total,
-        result
+        result,
       });
     }
 
@@ -78,7 +64,7 @@ module.exports = function parseResult(text) {
       students.push({
         regno,
         name,
-        subjects
+        subjects,
       });
     }
   }

@@ -13,14 +13,12 @@ const db = require("./db");
 
 const app = express();
 
-/* ================= CORS ================= */
-/* allow frontend + localhost */
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "ocr-frontend-murex.vercel.app",
+      "https://ocr-frontend-murex.vercel.app",
     ],
     methods: ["GET", "POST"],
   })
@@ -28,23 +26,19 @@ app.use(
 
 app.use(express.json());
 
-/* ================= UPLOADS FOLDER ================= */
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR);
 }
 
-/* serve uploads if needed */
 app.use("/uploads", express.static(UPLOAD_DIR));
 
-/* ================= MULTER ================= */
 const upload = multer({
   dest: UPLOAD_DIR,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-/* ================= CLEAR OLD IMAGES ================= */
 function clearOldImages() {
   fs.readdirSync(UPLOAD_DIR).forEach((file) => {
     if (file.endsWith(".png")) {
@@ -53,28 +47,18 @@ function clearOldImages() {
   });
 }
 
-/* ================= HEALTH CHECK ================= */
 app.get("/", (req, res) => {
-  res.json({ status: "OCR Backend running ✅" });
+  res.json({ status: "OCR Backend running" });
 });
 
-/* =====================================================
-   UPLOAD + OCR + STORE RESULTS
-===================================================== */
 app.post("/api/ocr/upload", upload.single("file"), async (req, res) => {
   try {
-    console.log("📤 OCR UPLOAD HIT");
-
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "No file uploaded",
-      });
+      return res.status(400).json({ success: false, message: "No file uploaded" });
     }
 
     let text = "";
 
-    /* ---------- PDF ---------- */
     if (req.file.mimetype === "application/pdf") {
       clearOldImages();
       await convertPdfToImages(req.file.path);
@@ -86,22 +70,16 @@ app.post("/api/ocr/upload", upload.single("file"), async (req, res) => {
       for (const img of images) {
         text += "\n" + (await extractText(path.join(UPLOAD_DIR, img)));
       }
-    }
-    /* ---------- IMAGE ---------- */
-    else {
+    } else {
       text = await extractText(req.file.path);
     }
 
     const students = parseResult(text);
 
     if (!students || students.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No student data detected",
-      });
+      return res.status(400).json({ success: false, message: "No student data detected" });
     }
 
-    /* ---------- INSERT INTO DB ---------- */
     for (const s of students) {
       for (const sub of s.subjects) {
         const semester = Number(sub.semester) || 1;
@@ -140,15 +118,10 @@ app.post("/api/ocr/upload", upload.single("file"), async (req, res) => {
       message: "Results stored successfully",
     });
   } catch (err) {
-    console.error("❌ OCR ERROR:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-/* ================= PUBLIC RESULTS API ================= */
 app.get("/results", async (req, res) => {
   try {
     const [rows] = await db
@@ -160,8 +133,5 @@ app.get("/results", async (req, res) => {
   }
 });
 
-/* ================= START SERVER ================= */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ OCR Backend running on port ${PORT}`);
-});
+app.listen(PORT);
