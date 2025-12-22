@@ -14,11 +14,13 @@ const db = require("./db");
 const app = express();
 
 /* ================= CORS ================= */
+/* allow frontend + localhost */
 app.use(
   cors({
     origin: [
-      "http://localhost:5173", // Admin / Dashboard
-      "http://localhost:5174", // OCR Frontend
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "ocr-frontend-murex.vercel.app",
     ],
     methods: ["GET", "POST"],
   })
@@ -26,25 +28,35 @@ app.use(
 
 app.use(express.json());
 
-/* ================= ENSURE UPLOADS FOLDER ================= */
-if (!fs.existsSync("uploads")) {
-  fs.mkdirSync("uploads");
+/* ================= UPLOADS FOLDER ================= */
+const UPLOAD_DIR = path.join(__dirname, "uploads");
+
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR);
 }
+
+/* serve uploads if needed */
+app.use("/uploads", express.static(UPLOAD_DIR));
 
 /* ================= MULTER ================= */
 const upload = multer({
-  dest: "uploads/",
+  dest: UPLOAD_DIR,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
 /* ================= CLEAR OLD IMAGES ================= */
 function clearOldImages() {
-  fs.readdirSync("uploads").forEach((file) => {
+  fs.readdirSync(UPLOAD_DIR).forEach((file) => {
     if (file.endsWith(".png")) {
-      fs.unlinkSync(path.join("uploads", file));
+      fs.unlinkSync(path.join(UPLOAD_DIR, file));
     }
   });
 }
+
+/* ================= HEALTH CHECK ================= */
+app.get("/", (req, res) => {
+  res.json({ status: "OCR Backend running ✅" });
+});
 
 /* =====================================================
    UPLOAD + OCR + STORE RESULTS
@@ -62,20 +74,20 @@ app.post("/api/ocr/upload", upload.single("file"), async (req, res) => {
 
     let text = "";
 
-    // ---------- PDF ----------
+    /* ---------- PDF ---------- */
     if (req.file.mimetype === "application/pdf") {
       clearOldImages();
       await convertPdfToImages(req.file.path);
 
       const images = fs
-        .readdirSync("uploads")
+        .readdirSync(UPLOAD_DIR)
         .filter((f) => f.endsWith(".png"));
 
       for (const img of images) {
-        text += "\n" + (await extractText(path.join("uploads", img)));
+        text += "\n" + (await extractText(path.join(UPLOAD_DIR, img)));
       }
     }
-    // ---------- IMAGE ----------
+    /* ---------- IMAGE ---------- */
     else {
       text = await extractText(req.file.path);
     }
@@ -89,7 +101,7 @@ app.post("/api/ocr/upload", upload.single("file"), async (req, res) => {
       });
     }
 
-    // ---------- INSERT DB ----------
+    /* ---------- INSERT INTO DB ---------- */
     for (const s of students) {
       for (const sub of s.subjects) {
         const semester = Number(sub.semester) || 1;
@@ -97,14 +109,14 @@ app.post("/api/ocr/upload", upload.single("file"), async (req, res) => {
 
         await db.promise().query(
           `INSERT INTO student_results
-           (regno, name, department, semester, year,
-            subject_code, subject_title, ia, ea, total, result)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-             ia = VALUES(ia),
-             ea = VALUES(ea),
-             total = VALUES(total),
-             result = VALUES(result)`,
+          (regno, name, department, semester, year,
+           subject_code, subject_title, ia, ea, total, result)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            ia = VALUES(ia),
+            ea = VALUES(ea),
+            total = VALUES(total),
+            result = VALUES(result)`,
           [
             s.regno,
             s.name,
@@ -136,13 +148,16 @@ app.post("/api/ocr/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-/* ================= PUBLIC APIs ================= */
-
+/* ================= PUBLIC RESULTS API ================= */
 app.get("/results", async (req, res) => {
-  const [rows] = await db
-    .promise()
-    .query("SELECT * FROM student_results ORDER BY regno, semester");
-  res.json(rows);
+  try {
+    const [rows] = await db
+      .promise()
+      .query("SELECT * FROM student_results ORDER BY regno, semester");
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
 /* ================= START SERVER ================= */
