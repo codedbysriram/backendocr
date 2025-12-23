@@ -32,10 +32,12 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+/* ROOT CHECK */
 app.get("/", (req, res) => {
   res.json({ status: "Backend running" });
 });
 
+/* PDF UPLOAD */
 app.post("/upload-test", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
@@ -61,29 +63,10 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       const parts = line.split(/\s+/);
       if (parts.length < 7) continue;
 
-      const regno = parts[0];
-      const subject_code = parts[1];
-      const subject_title = parts[2];
-      const ia = parseInt(parts[3]);
-      const ea = parseInt(parts[4]);
-      const total = parseInt(parts[5]);
-      const result = parts[6];
-
       await db.promise().query(
         `
-        INSERT INTO student_results (
-          regno,
-          name,
-          department,
-          semester,
-          year,
-          subject_code,
-          subject_title,
-          ia,
-          ea,
-          total,
-          result
-        )
+        INSERT INTO student_results
+        (regno, name, department, semester, year, subject_code, subject_title, ia, ea, total, result)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
           ia = VALUES(ia),
@@ -92,17 +75,17 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
           result = VALUES(result)
         `,
         [
-          regno,
+          parts[0],
           "Student",
           "CT",
           1,
           2025,
-          subject_code,
-          subject_title,
-          ia,
-          ea,
-          total,
-          result,
+          parts[1],
+          parts[2],
+          parseInt(parts[3]),
+          parseInt(parts[4]),
+          parseInt(parts[5]),
+          parts[6],
         ]
       );
     }
@@ -119,6 +102,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   }
 });
 
+/* FETCH RESULTS */
 app.get("/results", async (req, res) => {
   try {
     const [rows] = await db
@@ -126,7 +110,6 @@ app.get("/results", async (req, res) => {
       .query(
         "SELECT * FROM student_results ORDER BY regno, semester, subject_code"
       );
-
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
