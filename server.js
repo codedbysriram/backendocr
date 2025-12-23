@@ -5,7 +5,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const pdfParse = require("pdf-parse");
+const pdfParse = require("pdf-parse/lib/pdf-parse"); // ✅ FIXED IMPORT
 const db = require("./db");
 
 const app = express();
