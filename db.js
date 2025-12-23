@@ -7,10 +7,13 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
 
   waitForConnections: true,
-  connectionLimit: 1,
+  connectionLimit: 2,      // ✅ safer than 1
   queueLimit: 0,
   connectTimeout: 30000,
 });
+
+module.exports = pool;
+
 
 // Safe startup connection test (WILL NOT CRASH APP)
 pool.getConnection((err, conn) => {
