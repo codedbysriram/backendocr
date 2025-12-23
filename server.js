@@ -36,7 +36,6 @@ app.get("/", (req, res) => {
   res.json({ status: "Backend running" });
 });
 
-/* ================= PDF UPLOAD + STORE ================= */
 app.post("/upload-test", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
@@ -55,9 +54,6 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       .filter(Boolean);
 
     for (const line of lines) {
-      // Example expected line format:
-      // CT202501 CT101 Mathematics 25 60 85 PASS
-
       const parts = line.split(/\s+/);
       if (parts.length < 7) continue;
 
@@ -119,7 +115,6 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   }
 });
 
-/* ================= FETCH RESULTS ================= */
 app.get("/results", async (req, res) => {
   try {
     const [rows] = await db
