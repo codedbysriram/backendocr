@@ -5,7 +5,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const pdfParse = require("pdf-parse/lib/pdf-parse"); 
+const pdfParse = require("pdf-parse");
 const db = require("./db");
 
 const app = express();
@@ -46,9 +46,12 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
 
   try {
     const buffer = fs.readFileSync(req.file.path);
-    const pdf = await pdfParse(buffer);
 
-    const lines = pdf.text
+    const parsed = pdfParse.default
+      ? await pdfParse.default(buffer)
+      : await pdfParse(buffer);
+
+    const lines = parsed.text
       .split("\n")
       .map(l => l.trim())
       .filter(Boolean);
