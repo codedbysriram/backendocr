@@ -47,9 +47,10 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   try {
     const buffer = fs.readFileSync(req.file.path);
 
-    const parsed = typeof pdfParse === "function"
-      ? await pdfParse(buffer)
-      : await pdfParse.default(buffer);
+    const parsed =
+      typeof pdfParse === "function"
+        ? await pdfParse(buffer)
+        : await pdfParse.default(buffer);
 
     const lines = parsed.text
       .split("\n")
