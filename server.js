@@ -5,6 +5,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const pdfParse = require("pdf-parse");
 const db = require("./db");
 
 const app = express();
@@ -35,6 +36,7 @@ app.get("/", (req, res) => {
   res.json({ status: "Backend running" });
 });
 
+/* ================= PDF UPLOAD + STORE ================= */
 app.post("/upload-test", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
@@ -44,45 +46,70 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   }
 
   try {
-    const sql = `
-      INSERT INTO student_results (
-        regno,
-        name,
-        department,
-        semester,
-        year,
-        subject_code,
-        subject_title,
-        ia,
-        ea,
-        total,
-        result
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        ia = VALUES(ia),
-        ea = VALUES(ea),
-        total = VALUES(total),
-        result = VALUES(result)
-    `;
+    const buffer = fs.readFileSync(req.file.path);
+    const pdf = await pdfParse(buffer);
 
-    await db.promise().query(sql, [
-      "CT202501",
-      "Student Name",
-      "CT",
-      1,
-      2025,
-      "CT101",
-      "Mathematics",
-      25,
-      60,
-      85,
-      "PASS",
-    ]);
+    const lines = pdf.text
+      .split("\n")
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      // Example expected line format:
+      // CT202501 CT101 Mathematics 25 60 85 PASS
+
+      const parts = line.split(/\s+/);
+      if (parts.length < 7) continue;
+
+      const regno = parts[0];
+      const subject_code = parts[1];
+      const subject_title = parts[2];
+      const ia = parseInt(parts[3]);
+      const ea = parseInt(parts[4]);
+      const total = parseInt(parts[5]);
+      const result = parts[6];
+
+      await db.promise().query(
+        `
+        INSERT INTO student_results (
+          regno,
+          name,
+          department,
+          semester,
+          year,
+          subject_code,
+          subject_title,
+          ia,
+          ea,
+          total,
+          result
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          ia = VALUES(ia),
+          ea = VALUES(ea),
+          total = VALUES(total),
+          result = VALUES(result)
+        `,
+        [
+          regno,
+          "Student",
+          "CT",
+          1,
+          2025,
+          subject_code,
+          subject_title,
+          ia,
+          ea,
+          total,
+          result,
+        ]
+      );
+    }
 
     res.json({
       success: true,
-      message: "File uploaded and data stored successfully",
+      message: "PDF data stored in database",
     });
   } catch (err) {
     res.status(500).json({
@@ -92,6 +119,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   }
 });
 
+/* ================= FETCH RESULTS ================= */
 app.get("/results", async (req, res) => {
   try {
     const [rows] = await db
