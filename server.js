@@ -14,11 +14,13 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://ocr-frontend-murex.vercel.app",
+      "https://ocr-frontend-ufhf.vercel.app"
     ],
     methods: ["GET", "POST"],
   })
 );
+
+app.options("*", cors());
 
 app.use(express.json());
 
