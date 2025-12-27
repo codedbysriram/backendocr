@@ -36,9 +36,7 @@ app.use(
   })
 );
 
-/* ❌ DO NOT ADD app.options("*", cors()) — breaks Node 22 */
-
-/* ================= UPLOADS ================= */
+/* ================= UPLOAD CONFIG ================= */
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
@@ -53,6 +51,7 @@ app.get("/", (req, res) => {
   res.json({ status: "Backend running" });
 });
 
+/* ===== Upload & Parse PDF ===== */
 app.post("/upload-test", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
@@ -64,10 +63,8 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   try {
     const buffer = fs.readFileSync(req.file.path);
 
-    const parsed =
-      typeof pdfParse === "function"
-        ? await pdfParse(buffer)
-        : await pdfParse.default(buffer);
+    // ✅ THIS IS THE ONLY CORRECT WAY
+    const parsed = await pdfParse(buffer);
 
     const lines = parsed.text
       .split("\n")
@@ -81,7 +78,8 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       await db.promise().query(
         `
         INSERT INTO student_results
-        (regno, name, department, semester, year, subject_code, subject_title, ia, ea, total, result)
+        (regno, name, department, semester, year,
+         subject_code, subject_title, ia, ea, total, result)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
           ia = VALUES(ia),
@@ -97,9 +95,9 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
           2025,
           p[1],
           p[2],
-          parseInt(p[3]),
-          parseInt(p[4]),
-          parseInt(p[5]),
+          parseInt(p[3]) || 0,
+          parseInt(p[4]) || 0,
+          parseInt(p[5]) || 0,
           p[6],
         ]
       );
@@ -110,7 +108,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       message: "PDF data stored in database",
     });
   } catch (err) {
-    console.error(err);
+    console.error("UPLOAD ERROR:", err);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -118,6 +116,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   }
 });
 
+/* ===== Fetch Results ===== */
 app.get("/results", async (req, res) => {
   try {
     const [rows] = await db
