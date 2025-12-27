@@ -4,6 +4,10 @@ function getYear(semester) {
   return 3;
 }
 
+function toNumber(val) {
+  return /^\d+$/.test(val) ? parseInt(val) : 0;
+}
+
 module.exports = function parseResult(text) {
   const students = [];
 
@@ -19,13 +23,12 @@ module.exports = function parseResult(text) {
 
     const regMatch = block.match(/^([0-9A-Z]+)/);
     if (!regMatch) continue;
+
     const regno = regMatch[1];
 
     let name = "UNKNOWN";
     const nameMatch = block.match(/Name\s*:\s*([A-Z ]+)/i);
-    if (nameMatch) {
-      name = nameMatch[1].trim();
-    }
+    if (nameMatch) name = nameMatch[1].trim();
 
     const subjects = [];
     const lines = block.split("\n");
@@ -38,34 +41,21 @@ module.exports = function parseResult(text) {
       if (!match) continue;
 
       const semester = parseInt(match[1]);
-      const code = match[2];
-      const title = match[3].trim();
-
-      const ia = parseInt(match[5]) || 0;
-      const ea = parseInt(match[6]) || 0;
-      const total = parseInt(match[7]) || 0;
-
-      const resultRaw = match[8].toUpperCase();
-      const result = resultRaw === "P" ? "PASS" : "FAIL";
 
       subjects.push({
         semester,
         year: getYear(semester),
-        code,
-        title,
-        ia,
-        ea,
-        total,
-        result,
+        code: match[2],
+        title: match[3].trim(),
+        ia: toNumber(match[5]),
+        ea: toNumber(match[6]),
+        total: toNumber(match[7]),
+        result: match[8].toUpperCase() === "P" ? "PASS" : "FAIL",
       });
     }
 
-    if (subjects.length > 0) {
-      students.push({
-        regno,
-        name,
-        subjects,
-      });
+    if (subjects.length) {
+      students.push({ regno, name, subjects });
     }
   }
 

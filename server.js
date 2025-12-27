@@ -10,16 +10,35 @@ const db = require("./db");
 
 const app = express();
 
+/* ================= BASIC MIDDLEWARE ================= */
 app.use(express.json());
+
+/* ================= CORS CONFIG ================= */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://ocr-frontend-59ov.vercel.app",
+];
 
 app.use(
   cors({
-    origin: "https://ocr-frontend-59ov.vercel.app",
+    origin: function (origin, callback) {
+      // Allow Postman / curl
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })
 );
 
+/* ❌ DO NOT ADD app.options("*", cors()) — breaks Node 22 */
+
+/* ================= UPLOADS ================= */
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
@@ -27,6 +46,8 @@ const upload = multer({
   dest: UPLOAD_DIR,
   limits: { fileSize: 10 * 1024 * 1024 },
 });
+
+/* ================= ROUTES ================= */
 
 app.get("/", (req, res) => {
   res.json({ status: "Backend running" });
@@ -50,7 +71,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
 
     const lines = parsed.text
       .split("\n")
-      .map(l => l.trim())
+      .map((l) => l.trim())
       .filter(Boolean);
 
     for (const line of lines) {
@@ -89,6 +110,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       message: "PDF data stored in database",
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -103,11 +125,15 @@ app.get("/results", async (req, res) => {
       .query(
         "SELECT * FROM student_results ORDER BY regno, semester, subject_code"
       );
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+/* ================= START SERVER ================= */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
