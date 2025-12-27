@@ -1,3 +1,5 @@
+console.log("SERVER VERSION: 2025-OK");
+
 require("dotenv").config();
 
 const express = require("express");
@@ -5,7 +7,13 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+
+/* ✅ REQUIRE FIRST */
 const pdfParse = require("pdf-parse");
+
+/* ✅ THEN LOG */
+console.log("pdfParse type:", typeof pdfParse);
+
 const db = require("./db");
 
 const app = express();
@@ -22,7 +30,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow Postman / curl
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
@@ -63,12 +70,12 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   try {
     const buffer = fs.readFileSync(req.file.path);
 
-    // ✅ THIS IS THE ONLY CORRECT WAY
+    /* ✅ ONLY VALID USAGE */
     const parsed = await pdfParse(buffer);
 
     const lines = parsed.text
       .split("\n")
-      .map((l) => l.trim())
+      .map(l => l.trim())
       .filter(Boolean);
 
     for (const line of lines) {
