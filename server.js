@@ -18,7 +18,7 @@ app.use(express.json());
 /* ================= CORS ================= */
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://ocr-frontend-8x3m.vercel.app",
+  "https://ocr-frontend-8x3m.vercel.app/",
 ];
 
 app.use(
