@@ -18,18 +18,24 @@ app.use(express.json());
 /* ================= CORS ================= */
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://ocr-frontend-8x3m.vercel.app/",
+  "http://localhost:5174",
+  "https://ocr-frontend-8x3m.vercel.app"
 ];
 
 app.use(
   cors({
     origin(origin, cb) {
-      if (!origin) return cb(null, true);
+      if (!origin) return cb(null, true); // Postman / curl
       if (allowedOrigins.includes(origin)) return cb(null, true);
+
+      console.error("❌ CORS BLOCKED:", origin);
       return cb(new Error("CORS blocked"));
     },
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
   })
 );
+
 
 /* ================= UPLOAD CONFIG ================= */
 const UPLOAD_DIR = path.join(__dirname, "uploads");
